@@ -367,6 +367,7 @@ AWS partners with third-party specialists in logging and analysis to provide sol
 Amazon CloudTrail output, such as Splunk, Alert Logic, etc.
 
 Figure: Example Splunk output of CloudTrail
+
 ![Splunk Example](images/image002.png)
 
 ## Conclusion
