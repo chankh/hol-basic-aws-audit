@@ -1,0 +1,519 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description" : "Build out a 2 tier web architecture with the appropriate users and security groups for the Security Lab.",
+  "Parameters" : {
+    "InstanceType" : {
+      "Description" : "WebServer EC2 instance type",
+      "Type" : "String",
+      "Default" : "t2.micro",
+      "AllowedValues" : [ "t2.micro","t2.small","t2.medium", "m3.medium", "m3.large"],
+      "ConstraintDescription" : "must be a valid EC2 instance type."
+    },
+    "KeyName": {
+      "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "ConstraintDescription" : "must be the name of an existing EC2 KeyPair."
+    }
+  },
+  "Mappings": {
+    "AmazonLinuxAMI": {
+      "us-east-1": {
+        "AMI": "ami-b66ed3de"
+      },
+      "us-west-2": {
+        "AMI": "ami-b5a7ea85"
+      },
+      "us-west-1": {
+        "AMI": "ami-4b6f650e"
+      },
+      "eu-west-1": {
+        "AMI": "ami-6e7bd919"
+      },
+      "ap-southeast-1": {
+        "AMI": "ami-ac5c7afe"
+      },
+      "ap-northeast-1": {
+        "AMI": "ami-4985b048"
+      },
+      "ap-southeast-2": {
+        "AMI": "ami-63f79559"
+      },
+      "sa-east-1": {
+        "AMI": "ami-8737829a"
+      }
+    },
+    "AWSWindowsAMI": {
+      "us-east-1": {
+        "Windows2016sql": "ami-019bfe1a170786476",
+        "Windows2008r2": "ami-f058458a",
+        "Windows2012r2": "ami-a64855dc"
+      },
+      "us-west-2": {
+        "Windows2016sql": "ami-0a243a123272a2d0c",
+        "Windows2008r2": "ami-3cc94a44",
+        "Windows2012r2": "ami-a5d053dd"
+      },
+      "us-west-1": {
+        "Windows2016sql": "ami-0ffafc06a6bb9d14a",
+        "Windows2008r2": "ami-a40009c4",
+        "Windows2012r2": "ami-4a020b2a"
+      },
+      "eu-west-1": {
+        "Windows2016sql": "ami-0a78192dd2e225772",
+        "Windows2008r2": "ami-eb760692",
+        "Windows2012r2": "ami-6d601014"
+      },
+      "eu-west-2": {
+        "Windows2016sql": "ami-fcce3b9b",
+        "Windows2008r2": "ami-d60beeb1",
+        "Windows2012r2": "ami-6a15f00d"
+      },
+      "eu-west-3": {
+        "Windows2016sql": "ami-0a07063c0d5a87385",
+        "Windows2008r2": "ami-109d2b6d",
+        "Windows2012r2": "ami-a79d2bda"
+      },
+      "eu-central-1": {
+        "Windows2016sql": "ami-01e3f2dc0ac4c3eff",
+        "Windows2008r2": "ami-ad2d4cc2",
+        "Windows2012r2": "ami-f8305197"
+      },
+      "ap-northeast-1": {
+        "Windows2016sql": "ami-025ffc376d302e9f4",
+        "Windows2008r2": "ami-7bb4c91d",
+        "Windows2012r2": "ami-19b4c97f"
+      },
+      "ap-northeast-2": {
+        "Windows2016sql": "ami-0ad1aa04ef8654f9e",
+        "Windows2008r2": "ami-a95af8c7",
+        "Windows2012r2": "ami-2959fb47"
+      },
+      "ap-northeast-3": {
+        "Windows2016sql": "ami-017bcca2fe6221995",
+        "Windows2008r2": "ami-271c125a",
+        "Windows2012r2": "ami-8c1c12f1"
+      },
+      "ap-southeast-1": {
+        "Windows2016sql": "ami-04541fea1ef815a36",
+        "Windows2008r2": "ami-85d092f9",
+        "Windows2012r2": "ami-8bd597f7"
+      },
+      "ap-southeast-2": {
+        "Windows2016sql": "ami-05d1e4a2bad2250b1",
+        "Windows2008r2": "ami-b9c500db",
+        "Windows2012r2": "ami-01c30663"
+      },
+      "ap-south-1": {
+        "Windows2016sql": "ami-006948355c524a7b7",
+        "Windows2008r2": "ami-0d174a62",
+        "Windows2012r2": "ami-fd0d5092"
+      },
+      "us-east-2": {
+        "Windows2016sql": "ami-0266a48ef0467a673",
+        "Windows2008r2": "ami-dff8ccba",
+        "Windows2012r2": "ami-1efbcf7b"
+      },
+      "ca-central-1": {
+        "Windows2016sql": "ami-af25a8cb",
+        "Windows2008r2": "ami-c47ffba0",
+        "Windows2012r2": "ami-63068207"
+      },
+      "sa-east-1": {
+        "Windows2016sql": "ami-064f25e0ca59f68fa",
+        "Windows2008r2": "ami-0f256c63",
+        "Windows2012r2": "ami-ad256cc1"
+      }
+    }
+  },
+  "Resources" : { 
+    "VPC" : {
+      "Type" : "AWS::EC2::VPC",
+      "Properties" : {
+        "CidrBlock" : "172.31.0.0/16",
+        "EnableDnsSupport": "true",
+        "EnableDnsHostnames": "true",
+        "Tags" : [ 
+          {"Key": "VPC", "Value": "Security Lab VPC" },
+          {"Key": "Name", "Value": "Lab VPC" }
+        ]
+      }
+    },
+    "PublicSubnet" : {
+      "Type" : "AWS::EC2::Subnet",
+      "DependsOn": "AttachGateway",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "CidrBlock" : "172.31.1.0/24",
+        "AvailabilityZone": { "Fn::Select": ["0", { "Fn::GetAZs": "" } ] },
+        "Tags" : [ 
+          {"Key" : "Name", "Value" : "PublicSubnet"  }
+        ]
+      }
+    },
+    "PrivateSubnet" : {
+      "Type" : "AWS::EC2::Subnet",
+      "DependsOn": "AttachGateway",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "CidrBlock" : "172.31.2.0/24",
+        "AvailabilityZone": { "Fn::Select": ["0", { "Fn::GetAZs": "" } ] },
+        "Tags" : [ 
+          {"Key" : "Name", "Value" : "PrivateSubnet" }
+        ]
+      }
+    },
+    "InternetGateway": {
+      "Type": "AWS::EC2::InternetGateway",
+      "DependsOn": "VPC"
+    },
+    "AttachGateway": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "DependsOn": ["VPC", "InternetGateway"],
+      "Properties": {
+        "VpcId": {"Ref": "VPC"},
+        "InternetGatewayId": {"Ref": "InternetGateway"}
+      }
+    },
+    "PublicRouteTable" : {
+      "Type" : "AWS::EC2::RouteTable",
+      "DependsOn": ["VPC", "AttachGateway"],
+      "Properties" : {
+        "VpcId" : {"Ref" : "VPC"},
+        "Tags" : [ 
+          {"Key" : "Name", "Value" : "Public Route Table"} 
+        ]
+      }
+    },
+    "PublicRoute" : {
+      "Type" : "AWS::EC2::Route",
+      "DependsOn": ["PublicRouteTable", "AttachGateway"],
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "PublicRouteTable" },
+        "DestinationCidrBlock" : "0.0.0.0/0",
+        "GatewayId" : { "Ref" : "InternetGateway" }
+      }
+    },
+    "PublicSubnetRouteTableAssociation" : {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "DependsOn": ["PublicRouteTable", "PublicSubnet", "AttachGateway"],
+      "Properties" : {
+        "SubnetId" : { "Ref" : "PublicSubnet" },
+        "RouteTableId" : { "Ref" : "PublicRouteTable" }
+      }
+    },
+    "PrivateRouteTable" : {
+      "Type" : "AWS::EC2::RouteTable",
+      "DependsOn": ["VPC", "AttachGateway"],
+      "Properties" : {
+        "VpcId" : {"Ref" : "VPC"},
+        "Tags" : [ 
+          {"Key" : "Name", "Value" : "Private Route Table"} 
+        ]
+      }
+    },
+    "PrivateSubnetRouteTableAssociation" : {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "DependsOn": ["PublicRouteTable", "PrivateSubnet", "AttachGateway"],
+      "Properties" : {
+        "SubnetId" : { "Ref" : "PrivateSubnet" },
+        "RouteTableId" : { "Ref" : "PrivateRouteTable" }
+      }
+    },
+    "PrivateNetworkAcl" : {
+      "Type" : "AWS::EC2::NetworkAcl",
+      "Properties" : {
+        "VpcId" : {"Ref" : "VPC"},
+        "Tags" : [ {"Key" : "Name", "Value" : "PrivateNetworkACL" } ]
+      }
+    },
+    "PrivateInboundSQLNetworkAclEntry" : {
+      "Type" : "AWS::EC2::NetworkAclEntry",
+      "Properties" : {
+        "NetworkAclId" : {"Ref" : "PrivateNetworkAcl"},
+        "RuleNumber" : "100",
+        "Protocol" : "6",
+        "RuleAction" : "allow",
+        "Egress" : "false",
+        "CidrBlock" : "172.31.0.0/20",
+        "PortRange" : {"From" : "1433", "To" : "1433"}
+      }
+    },
+    "PrivateInboundRDPNetworkAclEntry" : {
+      "Type" : "AWS::EC2::NetworkAclEntry",
+      "Properties" : {
+        "NetworkAclId" : {"Ref" : "PrivateNetworkAcl"},
+        "RuleNumber" : "101",
+        "Protocol" : "6",
+        "RuleAction" : "allow",
+        "Egress" : "false",
+        "CidrBlock" : "172.31.0.0/20",
+        "PortRange" : {"From" : "3389", "To" : "3389"}
+      }
+    },
+    "PrivateOutBoundResponsePortsNetworkAclEntry" : {
+      "Type" : "AWS::EC2::NetworkAclEntry",
+      "Properties" : {
+        "NetworkAclId" : {"Ref" : "PrivateNetworkAcl"},
+        "RuleNumber" : "102",
+        "Protocol" : "6",
+        "RuleAction" : "allow",
+        "Egress" : "true",
+        "CidrBlock" : "172.31.0.0/20",
+        "PortRange" : {"From" : "1024", "To" : "65535"}
+      }
+    },
+    "NetworkAcl" : {
+      "Type" : "AWS::EC2::NetworkAcl",
+      "Properties" : {
+        "VpcId" : {"Ref" : "VPC"},
+        "Tags" : [ {"Key" : "Name", "Value" : "PublicNetworkACL" } ]
+      }
+    },
+    "InboundHTTPNetworkAclEntry" : {
+      "Type" : "AWS::EC2::NetworkAclEntry",
+      "Properties" : {
+        "NetworkAclId" : {"Ref" : "NetworkAcl"},
+        "RuleNumber" : "100",
+        "Protocol" : "6",
+        "RuleAction" : "allow",
+        "Egress" : "false",
+        "CidrBlock" : "0.0.0.0/0",
+        "PortRange" : {"From" : "80", "To" : "80"}
+      }
+    },
+    "InboundSSHNetworkAclEntry" : {
+      "Type" : "AWS::EC2::NetworkAclEntry",
+      "Properties" : {
+        "NetworkAclId" : {"Ref" : "NetworkAcl"},
+        "RuleNumber" : "101",
+        "Protocol" : "6",
+        "RuleAction" : "allow",
+        "Egress" : "false",
+        "CidrBlock" : "0.0.0.0/0",
+        "PortRange" : {"From" : "22", "To" : "22"}
+      }
+    },
+    "InboundRDPNetworkAclEntry" : {
+      "Type" : "AWS::EC2::NetworkAclEntry",
+      "Properties" : {
+        "NetworkAclId" : {"Ref" : "NetworkAcl"},
+        "RuleNumber" : "102",
+        "Protocol" : "6",
+        "RuleAction" : "allow",
+        "Egress" : "false",
+        "CidrBlock" : "0.0.0.0/0",
+        "PortRange" : {"From" : "3389", "To" : "3389"}
+      }
+    },
+    "OutBoundHTTPNetworkAclEntry" : {
+      "Type" : "AWS::EC2::NetworkAclEntry",
+      "Properties" : {
+        "NetworkAclId" : {"Ref" : "NetworkAcl"},
+        "RuleNumber" : "100",
+        "Protocol" : "6",
+        "RuleAction" : "allow",
+        "Egress" : "true",
+        "CidrBlock" : "0.0.0.0/0",
+        "PortRange" : {"From" : "80", "To" : "80"}
+      }
+    },
+    "OutBoundHTTPSNetworkAclEntry" : {
+      "Type" : "AWS::EC2::NetworkAclEntry",
+      "Properties" : {
+        "NetworkAclId" : {"Ref" : "NetworkAcl"},
+        "RuleNumber" : "101",
+        "Protocol" : "6",
+        "RuleAction" : "allow",
+        "Egress" : "true",
+        "CidrBlock" : "0.0.0.0/0",
+        "PortRange" : {"From" : "443", "To" : "443"}
+      }
+    },
+    "OutBoundResponsePortsNetworkAclEntry" : {
+      "Type" : "AWS::EC2::NetworkAclEntry",
+      "Properties" : {
+        "NetworkAclId" : {"Ref" : "NetworkAcl"},
+        "RuleNumber" : "102",
+        "Protocol" : "6",
+        "RuleAction" : "allow",
+        "Egress" : "true",
+        "CidrBlock" : "0.0.0.0/0",
+        "PortRange" : {"From" : "1024", "To" : "65535"}
+      }
+    },
+    "SubnetNetworkAclAssociation" : {
+      "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+      "Properties" : {
+        "SubnetId" : { "Ref" : "PublicSubnet" },
+        "NetworkAclId" : { "Ref" : "NetworkAcl" }
+      }
+    }, 
+    "PrivateSubnetNetworkAclAssociation" : {
+      "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+      "Properties" : {
+        "SubnetId" : { "Ref" : "PrivateSubnet" },
+        "NetworkAclId" : { "Ref" : "PrivateNetworkAcl" }
+      }
+    },   
+    "WebServerInstance" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "ImageId" : {"Fn::FindInMap" : ["AmazonLinuxAMI", { "Ref" : "AWS::Region" }, "AMI"]},
+        "InstanceType" : { "Ref" : "InstanceType" },
+        "KeyName" : { "Ref" : "KeyName" },
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": "0",
+            "AssociatePublicIpAddress": "true",
+            "SubnetId": { "Ref": "PublicSubnet" },
+            "GroupSet": [{ "Ref": "WebSecurityGroup" }]
+          }
+        ],
+        "Tags" : [ {"Key" : "Name", "Value" : "Web Server" } ]
+      }
+    },
+    "SQLServerInstance" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "ImageId" : { "Fn::FindInMap": ["AWSWindowsAMI",{ "Ref" : "AWS::Region"}, "Windows2016sql"]},
+        "InstanceType" : { "Ref" : "InstanceType" },
+        "KeyName" : { "Ref" : "KeyName" },
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": "0",
+            "AssociatePublicIpAddress": "false",
+            "SubnetId": { "Ref": "PrivateSubnet" },
+            "GroupSet": [{ "Ref": "SQLSecurityGroup" }]
+          }
+        ],
+        "Tags" : [ {"Key" : "Name", "Value" : "SQL Server" } ]
+      }
+    },
+    "BastionInstance" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "ImageId" : { "Fn::FindInMap" : ["AmazonLinuxAMI",{ "Ref" : "AWS::Region" }, "AMI"]},
+        "InstanceType" : { "Ref" : "InstanceType" },
+        "KeyName" : { "Ref" : "KeyName" },
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": "0",
+            "AssociatePublicIpAddress": "true",
+            "SubnetId": { "Ref": "PublicSubnet" },
+            "GroupSet": [{ "Ref": "BastionSecurityGroup" }]
+          }
+        ],
+        "Tags" : [ {"Key" : "Name", "Value" : "Bastion Host" } ]
+      }
+    },
+    "WebSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Enable access to the Web Server",
+        "VpcId" : { "Ref" : "VPC" },
+        "SecurityGroupIngress" : [ 
+          { "IpProtocol" : "tcp", "FromPort" : "80",  "ToPort" : "80",  "CidrIp" : "0.0.0.0/0"},
+          { "IpProtocol" : "tcp", "FromPort" : "443",  "ToPort" : "443",  "CidrIp" : "0.0.0.0/0"},
+          { "IpProtocol" : "tcp", "FromPort" : "3389",  "ToPort" : "3389",  "SourceSecurityGroupId" : { "Ref" : "BastionSecurityGroup"}}
+        ],
+        "Tags" : [ 
+          {"Key" : "Name", "Value" : "WebServerSG"} 
+        ]
+      }
+    },
+    "BastionSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Enable access to the Bastion Server",
+        "VpcId" : { "Ref" : "VPC" },
+        "SecurityGroupIngress" : [ 
+          { "IpProtocol" : "tcp", "FromPort" : "22",  "ToPort" : "22",  "CidrIp" : "0.0.0.0/0"},
+          { "IpProtocol" : "tcp", "FromPort" : "3389",  "ToPort" : "3389",  "CidrIp" : "0.0.0.0/0"}
+        ],
+        "Tags" : [ 
+          {"Key" : "Name", "Value" : "BastionSG"} 
+        ]
+      }
+    },
+    "SQLSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "DependsOn": ["BastionSecurityGroup", "WebSecurityGroup"],
+      "Properties" : {
+        "GroupDescription" : "Enable access to the Bastion Server and to the web server",
+        "VpcId" : { "Ref" : "VPC" },
+        "SecurityGroupIngress" : [ 
+          { "IpProtocol" : "tcp", "FromPort" : "1433",  "ToPort" : "1433",  "SourceSecurityGroupId" : { "Ref" : "WebSecurityGroup"} },
+          { "IpProtocol" : "tcp", "FromPort" : "3389",  "ToPort" : "3389",  "SourceSecurityGroupId" : { "Ref" : "BastionSecurityGroup"} }
+        ],
+        "Tags" : [ 
+          {"Key" : "Name", "Value" : "SQLSG"} 
+        ]
+      }
+    },
+    "LabStudent" : {
+      "Type" : "AWS::IAM::User",
+      "DependsOn" : "ReadOnlyUsers",
+      "Properties" : {
+        "Path" : "/"
+      }
+    },
+    "ReadOnlyUsers" : {
+      "Type" : "AWS::IAM::Group",
+      "Properties" : {
+         "Path" : "/",
+         "ManagedPolicyArns": [ "arn:aws:iam::aws:policy/ReadOnlyAccess" ]
+      }
+    },
+    "addUserToGroup" : {
+      "Type" : "AWS::IAM::UserToGroupAddition",
+      "DependsOn" : [ "LabStudent", "ReadOnlyUsers" ],
+      "Properties" : {
+        "GroupName" : { "Ref" : "ReadOnlyUsers" },
+        "Users" : [ { "Ref" : "LabStudent" } ]
+      }
+    },
+    "auditlogs" : {
+      "Type" : "AWS::S3::Bucket",
+      "Properties" : {
+      }
+    },
+    "BucketPolicy" : {
+      "Type" : "AWS::S3::BucketPolicy",
+      "Properties" : {
+        "Bucket" : {"Ref" : "auditlogs"},
+        "PolicyDocument" : {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "AWSCloudTrailAclCheck",
+              "Effect": "Allow",
+              "Principal": { "Service":"cloudtrail.amazonaws.com"},
+              "Action": "s3:GetBucketAcl",
+              "Resource": { "Fn::Join" : ["", ["arn:aws:s3:::", {"Ref":"auditlogs"}]]}
+            },
+            {
+              "Sid": "AWSCloudTrailWrite",
+              "Effect": "Allow",
+              "Principal": { "Service":"cloudtrail.amazonaws.com"},
+              "Action": "s3:PutObject",
+              "Resource": { "Fn::Join" : ["", ["arn:aws:s3:::", {"Ref":"auditlogs"}, "/AWSLogs/", {"Ref":"AWS::AccountId"}, "/*"]]},
+              "Condition": {
+                "StringEquals": {
+                  "s3:x-amz-acl": "bucket-owner-full-control"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "trail" : {
+      "DependsOn" : ["BucketPolicy"],
+      "Type" : "AWS::CloudTrail::Trail",
+      "Properties" : {
+        "S3BucketName" : { "Ref" : "auditlogs" },
+        "IsLogging" : true
+      }
+    }
+  }
+}
