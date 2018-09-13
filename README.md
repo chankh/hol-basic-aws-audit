@@ -34,7 +34,7 @@ services.
 
 Launch the CloudFormation stack by clicking on **Deploy to AWS** below.
 
-[<img src="https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png">](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#stacks/new?stackName=lab&templateURL=https://s3.amazonaws.com/khk-us-east-1/demos/hol_basic_aws_audit.json)
+[<img src="https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png">](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#stacks/new?stackName=lab&templateURL=https://s3.amazonaws.com/khk-us-east-1/labs/hol_basic_aws_audit.json)
 
 You will be prompted to input some parameters. Fill them in accordingly and proceed to create the
 stack. Once the stack creation is in progress, you can view the resources created by the stack by
@@ -389,4 +389,5 @@ Follow these steps to close the console, end your lab, and evaluate the experien
 2. Select the checkbox beside the stack created for this lab, which should be **lab** by default.
 3. Click **Actions** button and then **Delete Stack**.
 4. The stack created for this lab exercise will be deleted.
-
+5. After the stack is deleted, go to **S3** console and delete the bucket starting with
+   **lab-auditlogs...**.
