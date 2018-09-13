@@ -19,8 +19,7 @@ By the end of this lab, you will be able to:
 
 * Review user permissions in AWS IAM.
 * Capture audit evidence using AWS IAM Policy Simulator.
-* Review Inbound and Outbound networking rules for Amazon EC2
-* Security Groups.
+* Review Inbound and Outbound networking rules for Amazon EC2 Security Groups.
 * Review Amazon VPC configurations, subnets, and Network ACLs.
 * Review Amazon CloudWatch performance metrics.
 * Review raw Amazon CloudTrail logs within Amazon S3.
